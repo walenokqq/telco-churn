@@ -7,3 +7,5 @@ __pycache__/
 mlruns.db
 mlartifacts/
 .env
+
+practice/
