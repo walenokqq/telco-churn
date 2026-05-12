@@ -1,11 +1,32 @@
 *.csv
 *.pkl
-.venv*
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-mlruns.db
-mlartifacts/
+.claude/
 .env
+*.bak*
 
 practice/
+
+# MLflow
+mlflow/mlruns.db
+mlflow/mlartifacts/
+mlflow/mlruns/
+
+# Jupyter
+**/__pycache__/
+**/.ipynb_checkpoints/
+
+# Виртуальное окружение
+.venv*/
+venv*/
+
+# generated outputs
+outputs/
+*.json
+catboost_info/
+mlflow/
+mlruns/
+
+ 

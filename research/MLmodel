@@ -1,0 +1,43 @@
+artifact_path: model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.11.15
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.8.0
+mlflow_version: 2.16.0
+model_size_bytes: 16682136
+model_uuid: ebeb03507de745989fe1bf3cc860ebcf
+run_id: 57444a75c2c840238e40d2dde43af954
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "string", "name": "customerID", "required": true}, {"type": "string",
+    "name": "gender", "required": true}, {"type": "long", "name": "SeniorCitizen",
+    "required": true}, {"type": "string", "name": "Partner", "required": true}, {"type":
+    "string", "name": "Dependents", "required": true}, {"type": "long", "name": "tenure",
+    "required": true}, {"type": "string", "name": "PhoneService", "required": true},
+    {"type": "string", "name": "MultipleLines", "required": true}, {"type": "string",
+    "name": "InternetService", "required": true}, {"type": "string", "name": "OnlineSecurity",
+    "required": true}, {"type": "string", "name": "OnlineBackup", "required": true},
+    {"type": "string", "name": "DeviceProtection", "required": true}, {"type": "string",
+    "name": "TechSupport", "required": true}, {"type": "string", "name": "StreamingTV",
+    "required": true}, {"type": "string", "name": "StreamingMovies", "required": true},
+    {"type": "string", "name": "Contract", "required": true}, {"type": "string", "name":
+    "PaperlessBilling", "required": true}, {"type": "string", "name": "PaymentMethod",
+    "required": true}, {"type": "double", "name": "MonthlyCharges", "required": true},
+    {"type": "double", "name": "TotalCharges", "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "int64", "shape": [-1]}}]'
+  params: null
+utc_time_created: '2026-05-11 17:59:52.774958'

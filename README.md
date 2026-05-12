@@ -1,26 +1,55 @@
-# Telco Customer Churn — End-to-End ML Project
+# Telco Customer Churn Prediction
 
-Pet-проект по прогнозированию оттока клиентов телеком-компании (бинарная классификация). EDA → обучение моделей с MLflow → сервис на FastAPI в Docker → мониторинг через Prometheus + Grafana.
+End-to-end ML-проект по предсказанию оттока клиентов телеком-компании с полным циклом MLOps:
+EDA → эксперименты с моделями и фичами → трекинг в MLflow → деплой модели как FastAPI-сервиса → мониторинг.
 
 ## Стек
 
-Python 3.11, pandas, numpy, scikit-learn, lightgbm, MLflow, FastAPI, Docker, Docker Compose, Prometheus, Grafana, PostgreSQL, SHAP, Optuna.
+**Языки и фреймворки:** Python 3.11, pandas, numpy, scikit-learn, CatBoost, MLflow, Optuna, autofeat, mlxtend, FastAPI, Docker, Docker Compose, Prometheus, Grafana, PostgreSQL.
+
+**Задача:** бинарная классификация (отток клиента: Yes/No). Дисбаланс классов 73/27.
+
+**Датасет:** Telco Customer Churn — 7043 объекта, 20 признаков (числовые + категориальные).
 
 ## Структура проекта
+```
+my_proj
+├── data/                     # Исходные и очищенные данные (не коммитятся)
+├── eda/                      # Разведочный анализ
+│   ├── eda.ipynb
+│   └── *.png                 # Графики EDA
+├── research/                 # Эксперименты с моделями
+│   ├── research.ipynb
+│   ├── model_runs.png
+│   ├── model_versions.png
+│   └── MLmodel
+├── mlflow/                   # Фреймворк трекинга
+│   └── start_mlflow.sh
+├── outputs/
+├── .gitignore
+├── README.md
+└── requirements.txt          # Зависимости
+```
 
-- `data/` — исходный и очищенный датасет (не коммитятся)
-- `eda/` — ноутбук с разведочным анализом и графики
-- `requirements.txt` — зависимости проекта
+## Запуск проекта
 
-## Запуск
-
-Установка и активация виртуального окружения:
+### 1. Клонирование и окружение
 
 ```bash
-python3.11 -m venv .venv_my_proj
+git clone https://github.com/walenokqq/telco-churn.git
+cd telco-churn
+
+python3 -m venv .venv_my_proj
 source .venv_my_proj/bin/activate
+
 pip install -r requirements.txt
 ```
+
+### 2. Подготовка данных
+
+Положите файл `WA_Fn-UseC_-Telco-Customer-Churn.csv` в папку `data/`.
+Запустите ноутбук `eda/eda.ipynb` для очистки и сохранения `data/telco_churn_clean.pkl`.
+
 
 ## Результаты EDA
 
@@ -29,3 +58,63 @@ pip install -r requirements.txt
 - Самые сильные предикторы оттока: тип контракта, тип интернета, способ оплаты, защитные допуслуги, срок обслуживания (tenure).
 - Шумовые признаки: gender, PhoneService.
 - Портрет клиента группы риска: новичок с дорогим тарифом fiber optic, на помесячном контракте, без допуслуг защиты, оплачивает electronic check.
+
+### 3. Запуск MLflow
+
+```bash
+cd mlflow
+sh start_mlflow.sh
+```
+
+### 4. Запуск экспериментов
+
+Откройте ноутбук `research/research.ipynb` и последовательно запустите ячейки.
+
+## Результаты исследования
+
+Проведено 9 экспериментов с моделями. Все результаты залогированы в MLflow.
+
+| Эксперимент | precision | recall | f1 | roc_auc |
+|---|---|---|---|---|
+| Baseline RF | 0.667 | 0.493 | 0.567 | 0.838 |
+| FE sklearn (Polynomial + Bins) | 0.662 | 0.495 | 0.566 | 0.836 |
+| FE autofeat | 0.681 | 0.480 | 0.563 | 0.843 |
+| FS SFS forward | 0.573 | 0.480 | 0.522 | 0.790 |
+| FS combined (SFS + RFE) | 0.602 | 0.473 | 0.530 | 0.809 |
+| **Optuna RF (Production)** | **0.661** | **0.527** | **0.586** | 0.845 |
+| CatBoost default | 0.659 | 0.493 | 0.564 | 0.847 |
+| CatBoost tuned | 0.663 | 0.505 | 0.574 | 0.848 |
+
+### Production-модель
+
+**Алгоритм:** RandomForestClassifier с гиперпараметрами, подобранными через Optuna.
+
+**Параметры:**
+- `n_estimators`: 258
+- `max_depth`: 10
+- `max_features`: 0.264
+- `random_state`: 42
+
+**Препроцессинг:**
+- Числовые признаки → `StandardScaler`
+- Категориальные признаки → `TargetEncoder`
+
+**Метрики на test:** f1=0.586, roc_auc=0.845, precision=0.661, recall=0.527
+
+**MLflow run_id:** `57444a75c2c840238e40d2dde43af954`
+**Версия в Model Registry:** Version 7, alias `@production`
+
+### Ключевые предикторы оттока
+
+По результатам отбора признаков (SFS, RFE, CatBoost importance) топ-3 предиктора:
+
+1. **Contract** — тип контракта (Month-to-month клиенты уходят чаще)
+2. **tenure** — срок обслуживания (новички уходят чаще ветеранов)
+3. **OnlineSecurity / TechSupport** — наличие защитных услуг (клиенты без них уходят чаще)
+
+## Выводы
+
+- Для табличной классификации с дисбалансом классов наилучший результат показал тюненный RandomForest. CatBoost показал сопоставимый roc_auc, но немного меньший f1.
+- Внешний feature engineering (PolynomialFeatures, KBinsDiscretizer, autofeat) не дал значимого прироста — RF сам ловит нелинейности через сплиты деревьев.
+- Феничный отбор (SFS, RFE) не улучшил метрики, но позволил выделить 3 ключевых предиктора оттока.
+- Оптимизация гиперпараметров через Optuna (TPE-sampler) дала +2% к f1 относительно baseline за 15 trials.
