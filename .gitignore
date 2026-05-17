@@ -1,32 +1,29 @@
+# === Data ===
 *.csv
 *.pkl
+
+# === Python ===
 __pycache__/
+**/__pycache__/
 *.pyc
 .ipynb_checkpoints/
-.claude/
+**/.ipynb_checkpoints/
+
+# === Виртуальные окружения ===
+.venv*/
+venv*/
+
+# === секреты / служебное ===
 .env
-*.bak*
+.claude/
 
-practice/
-
-# MLflow
+# === MLflow артефакты ===
 mlflow/mlruns.db
 mlflow/mlartifacts/
 mlflow/mlruns/
 
-# Jupyter
-**/__pycache__/
-**/.ipynb_checkpoints/
-
-# Виртуальное окружение
-.venv*/
-venv*/
-
-# generated outputs
-outputs/
-*.json
+# === Прочие генерации ===
 catboost_info/
-mlflow/
-mlruns/
-
- 
+outputs/
+practice/
+*.bak*

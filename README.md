@@ -1,7 +1,7 @@
 # Telco Customer Churn Prediction
 
 End-to-end ML-проект по предсказанию оттока клиентов телеком-компании с полным циклом MLOps:
-EDA → эксперименты с моделями и фичами → трекинг в MLflow → деплой модели как FastAPI-сервиса → мониторинг.
+EDA -> эксперименты с моделями и фичами -> трекинг в MLflow -> деплой модели как FastAPI-сервиса -> мониторинг.
 
 ## Стек
 
@@ -9,9 +9,10 @@ EDA → эксперименты с моделями и фичами → тре�
 
 **Задача:** бинарная классификация (отток клиента: Yes/No). Дисбаланс классов 73/27.
 
-**Датасет:** Telco Customer Churn — 7043 объекта, 20 признаков (числовые + категориальные).
+**Датасет:** Telco Customer Churn - 7043 объекта, 20 признаков (числовые + категориальные).
 
 ## Структура проекта
+
 ```
 my_proj
 ├── data/                     # Исходные и очищенные данные (не коммитятся)
@@ -25,10 +26,18 @@ my_proj
 │   └── MLmodel
 ├── mlflow/                   # Фреймворк трекинга
 │   └── start_mlflow.sh
-├── outputs/
+├── services/
+│   ├── ml_service/           # FastAPI-сервис
+│   │   ├── main.py
+│   │   ├── api_handler.py
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   └── models/               # Модель и скрипт выгрузки
+│       ├── get_model.py
+│       └── model.pkl         # gitignored
 ├── .gitignore
 ├── README.md
-└── requirements.txt          # Зависимости
+└── requirements.txt
 ```
 
 ## Запуск проекта
@@ -50,15 +59,6 @@ pip install -r requirements.txt
 Положите файл `WA_Fn-UseC_-Telco-Customer-Churn.csv` в папку `data/`.
 Запустите ноутбук `eda/eda.ipynb` для очистки и сохранения `data/telco_churn_clean.pkl`.
 
-
-## Результаты EDA
-
-- Датасет содержит 7043 клиента и 21 признак. Целевая переменная — Churn (Yes/No), 27% оттока.
-- Очистка: колонка TotalCharges приведена из строки в float, 11 битых значений (клиенты с tenure=0) заполнены нулями.
-- Самые сильные предикторы оттока: тип контракта, тип интернета, способ оплаты, защитные допуслуги, срок обслуживания (tenure).
-- Шумовые признаки: gender, PhoneService.
-- Портрет клиента группы риска: новичок с дорогим тарифом fiber optic, на помесячном контракте, без допуслуг защиты, оплачивает electronic check.
-
 ### 3. Запуск MLflow
 
 ```bash
@@ -69,6 +69,14 @@ sh start_mlflow.sh
 ### 4. Запуск экспериментов
 
 Откройте ноутбук `research/research.ipynb` и последовательно запустите ячейки.
+
+## Результаты EDA
+
+- Датасет содержит 7043 клиента и 21 признак. Целевая переменная - Churn (Yes/No), 27% оттока.
+- Очистка: колонка TotalCharges приведена из строки в float, 11 битых значений (клиенты с tenure=0) заполнены нулями.
+- Самые сильные предикторы оттока: тип контракта, тип интернета, способ оплаты, защитные допуслуги, срок обслуживания (tenure).
+- Шумовые признаки: gender, PhoneService.
+- Портрет клиента группы риска: новичок с дорогим тарифом fiber optic, на помесячном контракте, без допуслуг защиты, оплачивает electronic check.
 
 ## Результаты исследования
 
@@ -96,8 +104,8 @@ sh start_mlflow.sh
 - `random_state`: 42
 
 **Препроцессинг:**
-- Числовые признаки → `StandardScaler`
-- Категориальные признаки → `TargetEncoder`
+- Числовые признаки -> `StandardScaler`
+- Категориальные признаки -> `TargetEncoder`
 
 **Метрики на test:** f1=0.586, roc_auc=0.845, precision=0.661, recall=0.527
 
@@ -108,13 +116,67 @@ sh start_mlflow.sh
 
 По результатам отбора признаков (SFS, RFE, CatBoost importance) топ-3 предиктора:
 
-1. **Contract** — тип контракта (Month-to-month клиенты уходят чаще)
-2. **tenure** — срок обслуживания (новички уходят чаще ветеранов)
-3. **OnlineSecurity / TechSupport** — наличие защитных услуг (клиенты без них уходят чаще)
+1. **Contract** - тип контракта (Month-to-month клиенты уходят чаще)
+2. **tenure** - срок обслуживания (новички уходят чаще ветеранов)
+3. **OnlineSecurity / TechSupport** - наличие защитных услуг (клиенты без них уходят чаще)
 
 ## Выводы
 
 - Для табличной классификации с дисбалансом классов наилучший результат показал тюненный RandomForest. CatBoost показал сопоставимый roc_auc, но немного меньший f1.
-- Внешний feature engineering (PolynomialFeatures, KBinsDiscretizer, autofeat) не дал значимого прироста — RF сам ловит нелинейности через сплиты деревьев.
+- Внешний feature engineering (PolynomialFeatures, KBinsDiscretizer, autofeat) не дал значимого прироста - RF сам ловит нелинейности через сплиты деревьев.
 - Феничный отбор (SFS, RFE) не улучшил метрики, но позволил выделить 3 ключевых предиктора оттока.
 - Оптимизация гиперпараметров через Optuna (TPE-sampler) дала +2% к f1 относительно baseline за 15 trials.
+
+## ML-сервис
+
+FastAPI-сервис, оборачивающий обученную модель оттока. Принимает признаки клиента, возвращает вероятность оттока.
+
+### Получить модель из MLflow
+
+```bash
+# MLflow в одном терминале:
+cd mlflow && sh start_mlflow.sh
+
+# В другом:
+cd services/models && python get_model.py
+```
+
+### Запуск Docker-образа
+
+```bash
+cd services/ml_service
+docker build -t telco_churn_service:1 .
+docker run -p 8000:8000 -v $(pwd)/../models:/models telco_churn_service:1
+```
+
+### Проверка работы
+
+Swagger UI: `http://localhost:8000/docs`
+
+Пример запроса `POST /api/prediction/123`:
+```json
+{
+  "customerID": "7590-VHVEG",
+  "gender": "Male",
+  "SeniorCitizen": 0,
+  "Partner": "Yes",
+  "Dependents": "No",
+  "tenure": 12,
+  "PhoneService": "Yes",
+  "MultipleLines": "No",
+  "InternetService": "Fiber optic",
+  "OnlineSecurity": "No",
+  "OnlineBackup": "Yes",
+  "DeviceProtection": "No",
+  "TechSupport": "No",
+  "StreamingTV": "Yes",
+  "StreamingMovies": "No",
+  "Contract": "Month-to-month",
+  "PaperlessBilling": "Yes",
+  "PaymentMethod": "Electronic check",
+  "MonthlyCharges": 70.35,
+  "TotalCharges": 845.5
+}
+```
+
+Ответ: `{"item_id": 123, "predict": 0.548}` (вероятность оттока).
