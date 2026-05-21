@@ -67,7 +67,7 @@ class FastAPIHandler:
         """Возвращает вероятность оттока для одного клиента."""
         self._validate_features(features)
 
-        # Pipeline ожидает DataFrame с именованными колонками
+        # пайплайн ожидает дф с именованными колонками
         X = pd.DataFrame([features])[self.REQUIRED_FEATURES]
 
         # берём вероятность класса 1 (отток)

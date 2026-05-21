@@ -78,6 +78,34 @@ sh start_mlflow.sh
 - Шумовые признаки: gender, PhoneService.
 - Портрет клиента группы риска: новичок с дорогим тарифом fiber optic, на помесячном контракте, без допуслуг защиты, оплачивает electronic check.
 
+**Распределение числовых признаков**
+
+![graph1](eda/graph1.png)
+
+**Числовые признаки vs Churn**
+
+![graph2](eda/graph2.png)
+
+**Категориальные признаки vs churn rate**
+
+![graph5](eda/graph5.png)
+
+**Contract vs Churn**
+
+![graph3](eda/graph3.png)
+
+**Доля оттока по типу контракта**
+
+![graph4](eda/graph4.png)
+
+**Корреляции числовых признаков**
+
+![graph6](eda/graph6.png)
+
+**Сегментация клиентов: tenure × MonthlyCharges**
+
+![graph7](eda/graph7.png)
+
 ## Результаты исследования
 
 Проведено 9 экспериментов с моделями. Все результаты залогированы в MLflow.
@@ -180,3 +208,58 @@ Swagger UI: `http://localhost:8000/docs`
 ```
 
 Ответ: `{"item_id": 123, "predict": 0.548}` (вероятность оттока).
+
+
+## Мониторинг и БД
+
+### Архитектура
+Проект разворачивается через `docker-compose` и состоит из 6 сервисов:
+
+- **ml_service** - FastAPI-сервис предсказаний (порт 8000). Endpoints: `/api/prediction/{id}`, `/metrics`, `/docs`. При каждом запросе пишет вход/выход в БД и метрику в Prometheus.
+- **requests** - генератор синтетической нагрузки, шлёт случайные POST-ы в ml_service каждые 0-5 секунд (10% - намеренно битые).
+- **prometheus** - pull-мониторинг (порт 9090). Скрапит `/metrics` каждые 5 сек.
+- **grafana** - дашборды (порт 3000, admin/admin).
+- **database** - PostgreSQL 17 (порт хоста 5433, внутренний 5432, БД `telco_churn`, admin/admin).
+- **pgadmin** - web-интерфейс БД (порт 5050).
+
+### Структура БД
+- `clients` - входные данные запроса: `id`, `ts`, `customer_id`, `tenure`, `monthly_charges`, `total_charges`, `contract`, `internet_service`, `payment_method`
+- `predictions` - предсказание: `id`, `ts`, `client_id (FK → clients.id)`, `client_ts`, `predict`
+
+### Запуск
+```bash
+cd services
+docker compose up --build -d
+```
+
+Доступы:
+- Сервис: http://localhost:8000/docs
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/admin)
+- pgAdmin: http://localhost:5050 (admin@admin.com/admin)
+
+### Дашборд Grafana
+Дашборд экспортирован в `services/grafana/dashboard.json` и содержит 6 графиков:
+
+1. **RPS** - текущая нагрузка на сервис
+2. **Запросы по статус-кодам** - доля 200/422/500
+3. **P95 Latency** - 95-й перцентиль времени ответа
+4. **Распределение predict (heatmap)** - тепловая карта вероятностей оттока, сдвиг плотности сигнализирует о drift
+5. **Средняя вероятность оттока по минутам** - тренд из БД
+6. **Распределение запросов по типам контрактов** - какие сегменты клиентов чаще запрашиваются
+
+![dashboard](services/grafana_export/screenshots/dashboard.png)
+
+### Скриншоты Prometheus
+В `services/prometheus/screenshots/`:
+- `predictions_histogram.png` - гистограмма предсказаний
+- `requests_rate.png` - частота запросов в минуту
+- `error_rates.png` - 4xx/5xx ошибки
+
+### Использованные технологии
+- **ML**: scikit-learn 1.8, pandas 2.2, numpy 1.26
+- **MLOps**: MLflow 2.16 (training/registry), Optuna 4.8 (HPO), CatBoost 1.2, autofeat 2.1
+- **Serving**: FastAPI 0.115, uvicorn, Pydantic 2.9
+- **Monitoring**: prometheus-client, prometheus-fastapi-instrumentator, Grafana
+- **Storage**: PostgreSQL 17, SQLAlchemy 2.0, psycopg2
+- **Infrastructure**: Docker, Docker Compose

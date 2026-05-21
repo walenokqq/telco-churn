@@ -13,7 +13,7 @@ __pycache__/
 .venv*/
 venv*/
 
-# === секреты / служебное ===
+# === .!. ===
 .env
 .claude/
 
@@ -27,3 +27,8 @@ catboost_info/
 outputs/
 practice/
 *.bak*
+
+# === Docker runtime data ===
+services/database/data/
+services/database/pgadmin/
+services/grafana/

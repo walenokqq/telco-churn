@@ -1,0 +1,93 @@
+# Запуск: docker compose up --build
+# Остановка: docker compose down
+
+services:
+  # === ML-сервис ===
+  ml_service:
+    build:
+      context: ./ml_service
+      dockerfile: Dockerfile
+    image: telco_churn_service:3
+    container_name: ml_service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: telco_churn
+      DB_USER: admin
+      DB_PASSWORD: admin
+    depends_on:
+      - database
+    restart: unless-stopped
+
+  # === Сервис нагрузки ===
+  requests:
+    build:
+      context: ./requests
+      dockerfile: Dockerfile
+    image: telco_churn_requests:1
+    container_name: requests
+    environment:
+      # имя сервиса в compose-сети, не localhost
+      ML_SERVICE_URL: http://ml_service:8000
+    depends_on:
+      - ml_service
+    restart: unless-stopped
+  
+  # === Prometheus ===
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+  # === PostgreSQL ===
+  database:
+    image: postgres:17.2
+    container_name: database
+    ports:
+      # 5433 на хосте чтобы не конфликтовать с локальным postgres
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: telco_churn
+    volumes:
+      - ./database/data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # === pgAdmin ===
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - ./database/pgadmin:/var/lib/pgadmin
+    depends_on:
+      - database
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - database
+    restart: unless-stopped
